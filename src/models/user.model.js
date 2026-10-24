@@ -23,6 +23,12 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     role: {
       type: String,
       enum: ["user", "admin"],

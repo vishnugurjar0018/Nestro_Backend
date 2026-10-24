@@ -1,8 +1,6 @@
 
 import express from "express";
 
-import { authenticateUser } from "../middleware/authMiddleware.js";
-
 import {
   sendRegistrationOtp,
   verifyRegistrationOtp,
@@ -11,9 +9,17 @@ import {
   getCurrentUser,
 } from "../controllers/auth.controller.js";
 
+import {
+  changePassword,
+  sendEmailChangeOtp,
+  verifyEmailChangeOtp,
+} from "../controllers/security.controller.js";
+
+import { authenticateUser } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
 
-// Email OTP registration
+// Registration OTP
 router.post("/send-otp", sendRegistrationOtp);
 router.post("/verify-otp", verifyRegistrationOtp);
 
@@ -21,7 +27,27 @@ router.post("/verify-otp", verifyRegistrationOtp);
 router.post("/login", loginUser);
 router.post("/logout", logoutUser);
 
-// Get currently logged-in user
+// Current logged-in user
 router.get("/me", authenticateUser, getCurrentUser);
+
+// Change password
+router.put(
+  "/change-password",
+  authenticateUser,
+  changePassword
+);
+
+// Change email
+router.post(
+  "/email-change/send-otp",
+  authenticateUser,
+  sendEmailChangeOtp
+);
+
+router.post(
+  "/email-change/verify-otp",
+  authenticateUser,
+  verifyEmailChangeOtp
+);
 
 export default router;

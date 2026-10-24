@@ -7,7 +7,10 @@ import nodemailer from "nodemailer";
 import User from "../models/user.model.js";
 import EmailOtp from "../models/emailOtp.model.js";
 
-// Cookie configuration
+// ==========================================
+// COOKIE OPTIONS
+// ==========================================
+
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -16,7 +19,10 @@ const cookieOptions = {
   path: "/",
 };
 
-// Gmail transporter
+// ==========================================
+// EMAIL TRANSPORTER
+// ==========================================
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -25,15 +31,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Hash OTP before storing it
+// ==========================================
+// OTP HASH
+// ==========================================
+
 const hashOtp = (otp) =>
   crypto.createHash("sha256").update(otp).digest("hex");
 
-
-// =====================================================
+// ==========================================
 // SEND REGISTRATION OTP
 // POST /api/auth/send-otp
-// =====================================================
+// ==========================================
+
 export const sendRegistrationOtp = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -52,10 +61,7 @@ export const sendRegistrationOtp = async (req, res) => {
       });
     }
 
-    if (
-      !process.env.EMAIL_USER ||
-      !process.env.EMAIL_APP_PASSWORD
-    ) {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
       return res.status(500).json({
         success: false,
         message: "Email service is not configured",
@@ -64,7 +70,6 @@ export const sendRegistrationOtp = async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check whether account already exists
     const existingUser = await User.findOne({
       email: normalizedEmail,
     });
@@ -82,10 +87,9 @@ export const sendRegistrationOtp = async (req, res) => {
       email: normalizedEmail,
     });
 
-    // Allow one OTP request every 60 seconds
     if (
       existingOtp &&
-      now.getTime() - existingOtp.lastSentAt.getTime() < 60_000
+      now.getTime() - new Date(existingOtp.lastSentAt).getTime() < 60000
     ) {
       return res.status(429).json({
         success: false,
@@ -93,10 +97,7 @@ export const sendRegistrationOtp = async (req, res) => {
       });
     }
 
-    // Generate a six-digit OTP
     const otp = crypto.randomInt(100000, 1000000).toString();
-
-    // Hash password before storing pending registration
     const hashedPassword = await bcrypt.hash(password, 12);
 
     await EmailOtp.findOneAndUpdate(
@@ -106,7 +107,7 @@ export const sendRegistrationOtp = async (req, res) => {
         email: normalizedEmail,
         password: hashedPassword,
         otpHash: hashOtp(otp),
-        expiresAt: new Date(now.getTime() + 5 * 60_000),
+        expiresAt: new Date(now.getTime() + 5 * 60 * 1000),
         attempts: 0,
         lastSentAt: now,
       },
@@ -157,19 +158,16 @@ export const sendRegistrationOtp = async (req, res) => {
   }
 };
 
-
-// =====================================================
+// ==========================================
 // VERIFY OTP AND CREATE ACCOUNT
 // POST /api/auth/verify-otp
-// =====================================================
+// ==========================================
+
 export const verifyRegistrationOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    if (
-      !email?.trim() ||
-      !/^\d{6}$/.test(String(otp ?? ""))
-    ) {
+    if (!email?.trim() || !/^\d{6}$/.test(String(otp ?? ""))) {
       return res.status(400).json({
         success: false,
         message: "A valid email and six-digit OTP are required",
@@ -189,7 +187,6 @@ export const verifyRegistrationOtp = async (req, res) => {
       });
     }
 
-    // Check OTP expiration
     if (pending.expiresAt.getTime() <= Date.now()) {
       await EmailOtp.deleteOne({ email: normalizedEmail });
 
@@ -199,7 +196,6 @@ export const verifyRegistrationOtp = async (req, res) => {
       });
     }
 
-    // Limit incorrect OTP attempts
     if (pending.attempts >= 5) {
       await EmailOtp.deleteOne({ email: normalizedEmail });
 
@@ -209,10 +205,7 @@ export const verifyRegistrationOtp = async (req, res) => {
       });
     }
 
-    // Compare OTP hashes
-    const submittedHash = hashOtp(String(otp));
-
-    const submittedBuffer = Buffer.from(submittedHash, "hex");
+    const submittedBuffer = Buffer.from(hashOtp(String(otp)), "hex");
     const storedBuffer = Buffer.from(pending.otpHash, "hex");
 
     const otpMatches =
@@ -239,7 +232,6 @@ export const verifyRegistrationOtp = async (req, res) => {
       });
     }
 
-    // Check account again before creating it
     const existingUser = await User.findOne({
       email: normalizedEmail,
     });
@@ -253,7 +245,6 @@ export const verifyRegistrationOtp = async (req, res) => {
       });
     }
 
-    // Create user only after successful OTP verification
     const user = await User.create({
       name: pending.name,
       email: pending.email,
@@ -290,11 +281,11 @@ export const verifyRegistrationOtp = async (req, res) => {
   }
 };
 
-
-// =====================================================
+// ==========================================
 // LOGIN USER
 // POST /api/auth/login
-// =====================================================
+// ==========================================
+
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -364,11 +355,11 @@ export const loginUser = async (req, res) => {
   }
 };
 
-
-// =====================================================
+// ==========================================
 // LOGOUT USER
 // POST /api/auth/logout
-// =====================================================
+// ==========================================
+
 export const logoutUser = (req, res) => {
   res.clearCookie("nestro_token", {
     httpOnly: true,
@@ -383,16 +374,52 @@ export const logoutUser = (req, res) => {
   });
 };
 
-
+// ==========================================
 // GET CURRENT LOGGED-IN USER
-export const getCurrentUser = (req, res) => {
-  return res.status(200).json({
-    success: true,
-    user: {
-      id: req.user._id,
-      name: req.user.name,
-      email: req.user.email,
-      role: req.user.role,
-    },
-  });
+// GET /api/auth/me
+// Requires authenticateUser middleware
+// ==========================================
+
+export const getCurrentUser = async (req, res) => {
+  try {
+    const userId = req.user?._id || req.user?.id || req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("GET CURRENT USER ERROR:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch current user",
+    });
+  }
 };
+
+// Compatibility alias if authRouter imports getMe
+export const getMe = getCurrentUser;
