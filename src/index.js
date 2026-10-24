@@ -1,3 +1,7 @@
+import dns from "node:dns";
+
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -10,6 +14,7 @@ import roomRouter from "./routers/roomRouter.js";
 import productRouter from "./routers/productRouter.js";
 import storePageHeroSectionRouter from "./routers/storepageherosectionRouter.js";
 import homepageherosectionRouter from "./routers/homepageherosectionRouter.js";
+import authRouter from "./routers/authRouter.js";
 
 const server = express();
 
@@ -17,12 +22,16 @@ const server = express();
 // MIDDLEWARE
 // =====================================================
 
+
 server.use(cors({
   origin: "http://localhost:3000",
+  credentials: true,
   methods: ["GET", "POST", "PATCH", "DELETE"],
 }));
 
+
 server.use(express.json());
+server.use("/api/auth", authRouter);
 
 
 
