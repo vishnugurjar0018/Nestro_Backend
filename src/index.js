@@ -24,12 +24,30 @@ import orderRouter from "./routers/orderRouter.js";
 const server = express();
 
 // ==========================================
+// ENV CONFIGURATION
+// ==========================================
+
+const PORT = process.env.PORT || 5000;
+
+const FRONTEND_URLS = (process.env.FRONTEND_URL || "http://localhost:3000")
+  .split(",")
+  .map((url) => url.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
+// ==========================================
 // MIDDLEWARE
 // ==========================================
 
 server.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Allow requests without Origin, such as Postman/server-to-server.
+      if (!origin || FRONTEND_URLS.includes(origin.replace(/\/+$/, ""))) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS: Origin not allowed"));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })
@@ -43,7 +61,6 @@ server.use(cookieParser());
 // ==========================================
 
 server.use("/api/auth", authRouter);
-
 server.use("/api/profile", profileRouter);
 
 server.use("/api/category", categoryRouter);
@@ -68,17 +85,12 @@ mongoose
   .then(() => {
     console.log("Database Connected");
 
-    const PORT = process.env.PORT || 5000;
-
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
+      console.log("Allowed frontend origins:", FRONTEND_URLS);
     });
   })
   .catch((error) => {
-    console.error(
-      "Database connection failed:",
-      error.message
-    );
-
+    console.error("Database connection failed:", error.message);
     process.exit(1);
   });
